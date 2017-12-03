@@ -12,13 +12,11 @@ function indent() {
 ENV_DIR=${3:-}
 
 # Get the Environment Variables we want
-#if [[ -f $ENV_DIR/SSH_KEY ]]; then ssh_key="$(cat $ENV_DIR/SSH_KEY)"; else ssh_key=""; fi;
 if [[ -f $ENV_DIR/SSH_HOST ]]; then ssh_host="$(cat $ENV_DIR/SSH_HOST)"; else ssh_host=""; fi;
 if [[ -f $ENV_DIR/SSH_ALIAS ]]; then ssh_alias="$(cat $ENV_DIR/SSH_ALIAS)"; else ssh_alias=""; fi;
 if [[ -f $ENV_DIR/SSH_USER ]]; then ssh_user="$(cat $ENV_DIR/SSH_USER)"; else ssh_user=""; fi;
 
 # Split variables into arrays using comma as separator
-#IFS=',' read -ra a_ssh_key <<< "$ssh_key"
 IFS=',' read -ra a_ssh_host <<< "$ssh_host"
 IFS=',' read -ra a_ssh_alias <<< "$ssh_alias"
 IFS=',' read -ra a_ssh_user <<< "$ssh_user"
