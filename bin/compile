@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+function indent() {
+	c='s/^/       /'
+	case $(uname) in
+		Darwin) sed -l "$c";;
+		*)      sed -u "$c";;
+	esac
+}
+
+# Get the Environment Variable Directory
+ENV_DIR=${3:-}
+
+# Get the Environment Variables we want
+#if [[ -f $ENV_DIR/SSH_KEY ]]; then ssh_key="$(cat $ENV_DIR/SSH_KEY)"; else ssh_key=""; fi;
+if [[ -f $ENV_DIR/SSH_HOST ]]; then ssh_host="$(cat $ENV_DIR/SSH_HOST)"; else ssh_host=""; fi;
+if [[ -f $ENV_DIR/SSH_ALIAS ]]; then ssh_alias="$(cat $ENV_DIR/SSH_ALIAS)"; else ssh_alias=""; fi;
+if [[ -f $ENV_DIR/SSH_USER ]]; then ssh_user="$(cat $ENV_DIR/SSH_USER)"; else ssh_user=""; fi;
+
+# Split variables into arrays using comma as separator
+#IFS=',' read -ra a_ssh_key <<< "$ssh_key"
+IFS=',' read -ra a_ssh_host <<< "$ssh_host"
+IFS=',' read -ra a_ssh_alias <<< "$ssh_alias"
+IFS=',' read -ra a_ssh_user <<< "$ssh_user"
+
+# Check all array lengths are the same
+st=0
+for i in ${#a_ssh_host[@]} ${#a_ssh_user[@]}; do
+    [ ${#a_ssh_alias[@]} -eq $i ]
+    st=$(( $? + st ))
+done
+
+# Check an Environment Variable key exists for each alias
+for i in "${!a_ssh_alias[@]}"; do
+    [[ -f $ENV_DIR/SSH_KEY_$i ]]
+    st=$(( $? + st ))
+done
+
+if [ $st -eq 0 ]; then
+    # All array lengths were the same - continue
+    echo "-----> Running SSH alias setup"
+
+    # The .ssh needs to be located in the home directory which is different to the home directory of the built machine.
+    # The symlink resolves the issue.
+    mkdir "$1/.ssh"
+    ln -s "$1/.ssh" "$HOME/.ssh"
+    echo "-----> Symbolic link created."
+
+    # Loop through aliases
+    for i in "${!a_ssh_alias[@]}"
+    do
+        # Create a file with the key contents
+        base64 --decode $ENV_DIR/SSH_KEY_$i > "$HOME/.ssh/custom_key_$i"
+
+        # Add configuration to end of SSH Config file
+        echo -e "Host ${a_ssh_alias[$i]}\n"\
+                "  HostName ${a_ssh_host[$i]}\n"\
+                "  User ${a_ssh_user[$i]}\n"\
+                "  IdentityFile ~/.ssh/custom_key_$i\n"\
+                "  ForwardAgent no\n"\
+                >> ~/.ssh/config
+
+        # Add key to known hosts
+        ssh -oStrictHostKeyChecking=no -T ${a_ssh_alias[$i]} 2>&1 | indent
+    done
+
+    exit 0
+else
+    # Arrays were not same length
+    echo "-----> Number of elements in each Environment Variable different."
+    echo "       (Must all be equal number of values in each - check commas)"
+fi
